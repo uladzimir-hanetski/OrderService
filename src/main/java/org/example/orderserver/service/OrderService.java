@@ -100,7 +100,7 @@ public class OrderService {
                 () -> new OrderNotFoundException("Order not found"));
 
         UserInfo userInfo = getUserInfoByEmail(getTokenFromHeader(tokenHeader), email);
-        if(userInfo == null) {
+        if (userInfo == null) {
             throw new UserNotFoundException("User not found");
         }
         if (!userInfo.getId().equals(order.getUserId())) {
