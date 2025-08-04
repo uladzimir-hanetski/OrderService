@@ -17,11 +17,7 @@ import org.example.orderserver.exception.UserNotFoundException;
 import org.example.orderserver.mapper.OrderMapper;
 import org.example.orderserver.repository.ItemRepository;
 import org.example.orderserver.repository.OrderRepository;
-import org.springframework.core.ParameterizedTypeReference;
-import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
-import org.springframework.web.reactive.function.client.WebClient;
-import reactor.core.publisher.Mono;
 import java.time.LocalDate;
 import java.util.List;
 import java.util.Map;
@@ -35,7 +31,7 @@ public class OrderService {
     private final OrderRepository orderRepository;
     private final OrderMapper mapper;
     private final ItemRepository itemRepository;
-    private final WebClient webClient;
+    private final UserService userService;
 
     @Transactional
     public OrderResponse save(OrderRequest orderRequest, String tokenHeader) {
@@ -52,7 +48,7 @@ public class OrderService {
             orderItem.setItem(item);
         }
 
-        UserInfo userInfo = getUserInfoByEmail(getTokenFromHeader(tokenHeader), orderRequest.getUserEmail());
+        UserInfo userInfo = userService.getUserInfoByEmail(getTokenFromHeader(tokenHeader), orderRequest.getUserEmail());
         if (userInfo == null) {
             throw new UserNotFoundException("User not found");
         }
@@ -69,7 +65,7 @@ public class OrderService {
                 () -> new OrderNotFoundException("Order not found"));
         OrderResponse orderResponse = mapper.toResponse(order);
 
-        UserInfo userInfo = getUserInfoByEmail(getTokenFromHeader(tokenHeader), email);
+        UserInfo userInfo = userService.getUserInfoByEmail(getTokenFromHeader(tokenHeader), email);
         if (userInfo == null) {
             throw new UserNotFoundException("User not found");
         }
@@ -99,7 +95,7 @@ public class OrderService {
         Order order = orderRepository.findById(id).orElseThrow(
                 () -> new OrderNotFoundException("Order not found"));
 
-        UserInfo userInfo = getUserInfoByEmail(getTokenFromHeader(tokenHeader), email);
+        UserInfo userInfo = userService.getUserInfoByEmail(getTokenFromHeader(tokenHeader), email);
         if (userInfo == null) {
             throw new UserNotFoundException("User not found");
         }
@@ -126,43 +122,9 @@ public class OrderService {
         orderRepository.deleteById(id);
     }
 
-    private UserInfo getUserInfoByEmail(final String token, final String email) {
-        return webClient
-                .get()
-                .uri(uriBuilder -> uriBuilder
-                        .path("/users/email/")
-                        .pathSegment(email)
-                        .build())
-                .headers(headers -> headers.setBearerAuth(token))
-                .retrieve()
-                .onStatus(status -> status == HttpStatus.NOT_FOUND,
-                        e -> Mono.error(new UserNotFoundException("User not found")))
-                .onStatus(status -> status == HttpStatus.UNAUTHORIZED,
-                        e -> Mono.error(new AuthorizationException("Incorrect token")))
-                .onStatus(status -> status == HttpStatus.INTERNAL_SERVER_ERROR,
-                        e -> Mono.error(new RuntimeException("User Service unavailable")))
-                .bodyToMono(UserInfo.class)
-                .block();
-    }
-
-    private List<UserInfo> getUserInfoByIds(String token, List<UUID> ids) {
-        return webClient
-                .post()
-                .uri("/users/ids")
-                .bodyValue(ids)
-                .headers(headers -> headers.setBearerAuth(token))
-                .retrieve()
-                .onStatus(status -> status == HttpStatus.UNAUTHORIZED,
-                        e -> Mono.error(new AuthorizationException("Incorrect token")))
-                .onStatus(status -> status == HttpStatus.INTERNAL_SERVER_ERROR,
-                        e -> Mono.error(new RuntimeException("User Service unavailable")))
-                .bodyToMono(new ParameterizedTypeReference<List<UserInfo>>() {})
-                .block();
-    }
-
     private List<OrderResponse> createOrderResponses(List<Order> orders, String tokenHeader) {
         List<UUID> userIds = orders.stream().map(Order::getUserId).distinct().toList();
-        List<UserInfo> usersInfo = getUserInfoByIds(getTokenFromHeader(tokenHeader), userIds);
+        List<UserInfo> usersInfo = userService.getUserInfoByIds(getTokenFromHeader(tokenHeader), userIds);
         if (usersInfo == null) {
             throw new UserNotFoundException("User not found");
         }
