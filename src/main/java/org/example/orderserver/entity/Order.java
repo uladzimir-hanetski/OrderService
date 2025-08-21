@@ -34,6 +34,9 @@ public class Order {
     @Column(name = "user_id", nullable = false)
     private UUID userId;
 
+    @Column(name = "payment_id")
+    private UUID paymentId;
+
     @OneToMany(mappedBy = "order", cascade = CascadeType.ALL, orphanRemoval = true, fetch = FetchType.LAZY)
     private List<OrderItem> orderItems;
 }

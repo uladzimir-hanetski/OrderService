@@ -9,6 +9,7 @@ import java.util.UUID;
 @Data
 public class OrderResponse {
     private UUID id;
+    private UUID paymentId;
     private String status;
     private LocalDate creationDate;
     private List<OrderItemResponse> orderItems;
